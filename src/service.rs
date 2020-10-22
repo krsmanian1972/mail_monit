@@ -1,71 +1,47 @@
-use std::env;
 use actix_web::client::Client;
-use serde::{Deserialize, Serialize};
+use std::env;
 
+use crate::ferris_mail::{FerrisMail, FerrisResponse, GraphQL};
 
-use crate::ferris_mail::{FerrisMail, FerrisResponse, GET_FERRIS_MAILS_QUERY};
+use crate::adapter::{to_sendgrid_event_mail, to_sendgrid_mail};
 use crate::sendgrid_mail::SendGridMail;
 
 const FERRIS_URL: &'static str = "http://localhost:8088/graphql";
 
-pub async fn send_mails(ferris_response: &FerrisResponse) {
-    
-    let mails = ferris_response.data.getSendableMails.mails.as_ref().unwrap();
-    
-    for mail in mails {
-        let sendgrid_mail = to_sendgrid_mail(&mail);
-        let sendgrid_response = dispatch_mail(&sendgrid_mail).await;
+const FERRIS_REQUEST_ERROR: &'static str = "Error while requesting for pending mails";
+const RESPONSE_UNPACKING_ERROR: &'static str = "Error while unpacking the response for body";
+const RESPONSE_MALFORMED_ERROR: &'static str = "Error in serializing ferris response";
+
+const EVENT: &'static str = "event";
+
+/**
+ * The mails we need to send should be classified and pre-processed
+ * before handing over to sendgrid api
+ */
+pub async fn send_mails(mails: Vec<FerrisMail>) {
+    for mut mail in mails {
+        let sendgrid_mail = as_sendgrid_mail(&mut mail);
+        let response = dispatch_mail(&sendgrid_mail).await;
+        log(response);
     }
 }
 
-pub fn to_sendgrid_mail(given_mail: &FerrisMail) -> SendGridMail {
-    let corres = &given_mail.correspondence;
-    let people = &given_mail.receipients;
-
-    let mail_from = corres.fromEmail.as_str();
-    let mail_subject = corres.subject.as_str();
-    let mail_content = corres.content.as_str();
-
-    let mut to_emails: Vec<String> = Vec::new();
-    let mut cc_emails: Vec<String> = Vec::new();
-    let mut bcc_emails: Vec<String> = Vec::new();
-
-    for person in people {
-        let to_type = person.toType.as_str();
-        let email = person.toEmail.as_str();
-
-        if to_type.eq_ignore_ascii_case("to") {
-            to_emails.push(email.to_owned());
-        } else if to_type.eq_ignore_ascii_case("cc") {
-            cc_emails.push(email.to_owned());
-        } else if to_type.eq_ignore_ascii_case("bcc") {
-            bcc_emails.push(email.to_owned());
-        } else {
-            cc_emails.push(email.to_owned());
-        }
+fn as_sendgrid_mail(mail: &mut FerrisMail) -> SendGridMail {
+    if mail.correspondence.mailType == EVENT {
+        return to_sendgrid_event_mail(mail);
     }
-
-    let mail = SendGridMail::new(
-        mail_from,
-        &to_emails,
-        &cc_emails,
-        &bcc_emails,
-        mail_subject,
-        mail_content,
-    );
-
-    mail
+    to_sendgrid_mail(mail)
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct GraphQL {
-    query: String,
+fn log(response: Result<String, String>) {
+    println!("Mail {:?}", response);
 }
 
-pub async fn get_pending_mails() -> Result<FerrisResponse, String> {
-    let graph_ql = GraphQL {
-        query: GET_FERRIS_MAILS_QUERY.to_owned(),
-    };
+/**
+ * Talk to Ferris and obtain the partial list of pending mails.
+ */
+pub async fn get_pending_mails() -> Result<Vec<FerrisMail>, String> {
+    let graph_ql = GraphQL::pending_mails_query();
 
     let body_data = serde_json::to_string(&graph_ql).unwrap();
 
@@ -79,25 +55,35 @@ pub async fn get_pending_mails() -> Result<FerrisResponse, String> {
         .await;
 
     if response_result.is_err() {
-        return Err("Error while requesting for pending mails".to_owned());
+        return Err(FERRIS_REQUEST_ERROR.to_owned());
     }
 
     let body_result = response_result.unwrap().body().await;
 
     if body_result.is_err() {
-        return Err("Error while unpacking the response for body".to_owned());
+        return Err(RESPONSE_UNPACKING_ERROR.to_owned());
     }
 
     let body_bytes = body_result.unwrap();
     let s = std::str::from_utf8(&body_bytes).expect("utf8 parse error)");
 
-    let ferris_response: FerrisResponse = serde_json::from_str(&s).unwrap();
+    let ferris_result = serde_json::from_str(&s);
 
-    Ok(ferris_response)
+    if ferris_result.is_err() {
+        return Err(RESPONSE_MALFORMED_ERROR.to_owned());
+    }
+
+    let ferris_response: FerrisResponse = ferris_result.unwrap();
+
+    let mails = ferris_response.data.getSendableMails.mails.unwrap();
+
+    Ok(mails)
 }
 
-pub async fn dispatch_mail(mail: &SendGridMail) -> Result<String,String>{
-
+/**
+ * Dispatch the mail to Sendgrid
+ */
+async fn dispatch_mail(mail: &SendGridMail) -> Result<String, String> {
     let mail_data = serde_json::to_string(&mail).unwrap();
 
     let api_key = env::var("SENDGRID_API_KEY").expect("The Sendgrid API Key should be set");
@@ -113,7 +99,6 @@ pub async fn dispatch_mail(mail: &SendGridMail) -> Result<String,String>{
         .send_body(&mail_data)
         .await;
 
-    
     if response.is_ok() {
         return Ok(String::from("Ok"));
     }

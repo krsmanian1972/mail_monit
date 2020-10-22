@@ -42,9 +42,11 @@ pub struct SendGridMail {
     pub personalizations: [Personalizations; 1],
     pub subject: String,
     pub content: [HashMap<String, String>; 1],
+    pub attachments: Option<Vec<HashMap<String,String>>>
 }
 
 impl SendGridMail {
+
     pub fn new(from: &str, to_emails: &Vec<String>, cc_emails: &Vec<String>, bcc_emails: &Vec<String>, subject: &str, body: &str) -> SendGridMail {
         let mut from_map = HashMap::new();
         from_map.insert(String::from("email"), String::from(from));
@@ -62,6 +64,7 @@ impl SendGridMail {
             personalizations: personalizations,
             subject: String::from(subject),
             content: content,
+            attachments: None,
         }
     }
 }
