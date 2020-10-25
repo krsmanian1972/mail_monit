@@ -54,11 +54,13 @@ pub async fn get_pending_mails() -> Result<Vec<FerrisMail>, String> {
         .send_body(&body_data)
         .await;
 
-    if response_result.is_err() {
-        return Err(FERRIS_REQUEST_ERROR.to_owned());
-    }
-
-    let body_result = response_result.unwrap().body().await;
+    let body_result = match response_result {
+        Ok(mut result) => result.body().await,
+        Err(e) => {
+            println!("{}",e);
+            return Err(FERRIS_REQUEST_ERROR.to_owned());
+        }
+    };
 
     if body_result.is_err() {
         return Err(RESPONSE_UNPACKING_ERROR.to_owned());
