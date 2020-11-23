@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ferris_event::FerrisEvent;
 
-pub const GET_FERRIS_MAILS_QUERY: &'static str = r#"query  {
+pub const GET_FERRIS_MAILS_QUERY: &str = r#"query  {
   getSendableMails {
     mails {
       correspondence

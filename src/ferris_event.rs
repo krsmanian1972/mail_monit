@@ -13,7 +13,7 @@ use base64::encode;
 use ics::properties::{Description, DtEnd, DtStart, Method, Organizer, Attendee, Sequence, Status, Summary, URL};
 use ics::{Event, ICalendar};
 
-pub const EVENT_DIR: &'static str = "/Users/pmpower/assets/events";
+pub const EVENT_DIR: &str = "/Users/pmpower/assets/events";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FerrisEvent {
@@ -83,7 +83,7 @@ impl FerrisEvent {
         let mut file = File::open(path)?;
         file.read_to_string(&mut buffer)?;
 
-        Ok(buffer.to_owned())
+        Ok(buffer)
     }
 }
 

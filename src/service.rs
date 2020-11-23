@@ -6,13 +6,13 @@ use crate::ferris_mail::{FerrisMail, FerrisResponse, GraphQL};
 use crate::adapter::{to_sendgrid_event_mail, to_sendgrid_mail};
 use crate::sendgrid_mail::SendGridMail;
 
-const FERRIS_URL: &'static str = "http://localhost:8088/graphql";
+const FERRIS_URL: &str = "http://localhost:8088/graphql";
 
-const FERRIS_REQUEST_ERROR: &'static str = "Error while requesting for pending mails";
-const RESPONSE_UNPACKING_ERROR: &'static str = "Error while unpacking the response for body";
-const RESPONSE_MALFORMED_ERROR: &'static str = "Error in serializing ferris response";
+const FERRIS_REQUEST_ERROR: &str = "Error while requesting for pending mails";
+const RESPONSE_UNPACKING_ERROR: &str = "Error while unpacking the response for body";
+const RESPONSE_MALFORMED_ERROR: &str = "Error in serializing ferris response";
 
-const EVENT: &'static str = "event";
+const EVENT: &str = "event";
 
 /**
  * The mails we need to send should be classified and pre-processed

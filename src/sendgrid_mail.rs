@@ -9,8 +9,8 @@ pub struct Personalizations {
 }
 
 impl Personalizations {
-    pub fn as_personal_map(emails: &Vec<String>) -> Option<Vec<HashMap<String, String>>> {
-        if emails.len() == 0 {
+    pub fn personal_map(emails: &[String]) -> Option<Vec<HashMap<String, String>>> {
+        if emails.is_empty(){
             return None;
         }
 
@@ -25,10 +25,10 @@ impl Personalizations {
         Some(result)
     }
 
-    pub fn new(to_emails: &Vec<String>, cc_emails: &Vec<String>, bcc_emails: &Vec<String>) -> [Personalizations; 1] {
-        let to = Personalizations::as_personal_map(to_emails);
-        let cc = Personalizations::as_personal_map(cc_emails);
-        let bcc = Personalizations::as_personal_map(bcc_emails);
+    pub fn new(to_emails: &[String], cc_emails: &[String], bcc_emails: &[String]) -> [Personalizations; 1] {
+        let to = Personalizations::personal_map(to_emails);
+        let cc = Personalizations::personal_map(cc_emails);
+        let bcc = Personalizations::personal_map(bcc_emails);
 
         let personalization = Personalizations { to, cc, bcc };
 
@@ -47,7 +47,7 @@ pub struct SendGridMail {
 
 impl SendGridMail {
 
-    pub fn new(from: &str, to_emails: &Vec<String>, cc_emails: &Vec<String>, bcc_emails: &Vec<String>, subject: &str, body: &str) -> SendGridMail {
+    pub fn new(from: &str, to_emails: &[String], cc_emails: &[String], bcc_emails: &[String], subject: &str, body: &str) -> SendGridMail {
         let mut from_map = HashMap::new();
         from_map.insert(String::from("email"), String::from(from));
 
@@ -61,9 +61,9 @@ impl SendGridMail {
 
         SendGridMail {
             from: from_map,
-            personalizations: personalizations,
+            personalizations,
             subject: String::from(subject),
-            content: content,
+            content,
             attachments: None,
         }
     }

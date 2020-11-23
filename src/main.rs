@@ -12,14 +12,12 @@ use std::time::{Duration, SystemTime};
 
 #[warn(unused_variables)]
 async fn index(_request: HttpRequest) -> HttpResponse {
-    let body = format!("Welcome to Mail Monitor.");
+    let body = "Welcome to Mail Monitor.";
     HttpResponse::Ok().body(body)
 }
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "mail_monit=info");
-    env_logger::init();
     dotenv::dotenv().ok();
     let bind = dotenv::var("BIND").unwrap();
     let polling_seconds = dotenv::var("POLLING_SECONDS").unwrap().parse::<u64>().unwrap();
@@ -40,14 +38,6 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || App::new().route("/", web::get().to(index))).bind(&bind)?.run().await
 }
 
-struct Executor {
-    last_message_sent: SystemTime,
-}
-
-impl Actor for Executor {
-    type Context = Context<Self>;
-}
-
 struct Ping {
     ts: SystemTime,
 }
@@ -56,19 +46,23 @@ impl Message for Ping {
     type Result = ();
 }
 
+struct Executor {
+    last_message_sent: SystemTime,
+}
+
+impl Actor for Executor {
+    type Context = Context<Self>;
+}
+
 impl Handler<Ping> for Executor {
     type Result = ResponseActFuture<Self, ()>;
 
     fn handle(&mut self, msg: Ping, _ctx: &mut Self::Context) -> Self::Result {
         self.last_message_sent = msg.ts;
 
-        Box::pin(
-            dispatch_pending_mails()
-            .into_actor(self)
-            .map(|res, _act, _ctx| {
-                println!("Message {:?}", res);
-            })
-        )
+        Box::pin(dispatch_pending_mails().into_actor(self).map(|res, _act, _ctx| {
+            println!("Message {:?}", res);
+        }))
     }
 }
 
@@ -77,9 +71,16 @@ async fn dispatch_pending_mails() {
 
     match mail_result {
         Ok(pending_mails) => {
-            println!("Number of Mails gathered {}", &pending_mails.len());
-            send_mails(pending_mails).await;
+            if pending_mails.is_empty() {
+                println!("No Pending Mails");
+            } else {
+                println!("Number of Mails gathered {}", pending_mails.len());
+                send_mails(pending_mails).await;
+            }
         }
-        Err(e) => println!("Error while gathering mails {}", e),
+        Err(e) => {
+            eprintln!("Error while gathering mails {}", e);
+            std::process::exit(0);
+        }
     }
 }

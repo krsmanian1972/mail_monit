@@ -38,9 +38,7 @@ pub fn to_sendgrid_mail(ferris_mail: &FerrisMail) -> SendGridMail {
         }
     }
 
-    let sendgrid_mail = SendGridMail::new(mail_from, &to_emails, &cc_emails, &bcc_emails, mail_subject, mail_content);
-
-    sendgrid_mail
+    SendGridMail::new(mail_from, &to_emails, &cc_emails, &bcc_emails, mail_subject, mail_content)
 }
 
 /**
